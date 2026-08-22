@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dayflow HRMS</title>
+  <!--styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+
+  <!-- Top Navigation (Hidden until user logs in) -->
+  <header id="app-nav" class="hidden bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow">
+    <div class="flex items-center space-x-3">
+      <span class="text-xl font-bold text-indigo-400">Dayflow</span>
+      <span id="user-badge" class="text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded text-slate-300">Role</span>
+    </div>
+    <nav class="flex items-center space-x-6 text-sm font-medium">
+      <button onclick="showView('view-dashboard')" class="hover:text-indigo-400">Dashboard</button>
+      <button onclick="showView('view-attendance')" class="hover:text-indigo-400">Attendance</button>
+      <button onclick="showView('view-leaves')" class="hover:text-indigo-400">Leaves</button>
+      <button onclick="showView('view-profile')" class="hover:text-indigo-400">Profile</button>
+      <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-white text-xs">Logout</button>
+    </nav>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-6">
+
+    <!-- AUTHENTICATION -->
+    <section id="view-auth" class="max-w-md mx-auto mt-12 bg-white p-8 rounded-xl shadow-md border border-slate-200">
+      <h1 class="text-2xl font-bold text-center text-slate-900 mb-6">Sign In</h1>
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Email</label>
+          <input type="email" id="login-email" required class="w-full border border-slate-300 px-3 py-2 rounded-lg text-sm focus:outline-indigo-600" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Password</label>
+          <input type="password" id="login-password" required class="w-full border border-slate-300 px-3 py-2 rounded-lg text-sm focus:outline-indigo-600" />
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg text-sm transition">
+          Log In
+        </button>
+      </form>
+    </section>
+
+    <!--DASHBOARD -->
+    <section id="view-dashboard" class="hidden space-y-6">
+      <div class="border-b pb-4">
+        <h2 class="text-2xl font-bold text-slate-900">Dashboard</h2>
+        <p class="text-sm text-slate-500">Overview of your daily activities and metrics.</p>
+      </div>
+
+      <!-- Quick Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-semibold text-slate-500 uppercase">Today's Attendance</h3>
+          <p id="dash-attendance-status" class="text-xl font-bold text-slate-800 mt-2">Not Checked In</p>
+          <button onclick="showView('view-attendance')" class="mt-4 text-xs font-semibold text-indigo-600 hover:underline">Manage Attendance &rarr;</button>
+        </div>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-semibold text-slate-500 uppercase">Pending Leaves</h3>
+          <p id="dash-leave-count" class="text-xl font-bold text-slate-800 mt-2">0 Requests</p>
+          <button onclick="showView('view-leaves')" class="mt-4 text-xs font-semibold text-indigo-600 hover:underline">View Leaves &rarr;</button>
+        </div>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-semibold text-slate-500 uppercase">Profile Status</h3>
+          <p id="dash-user-name" class="text-xl font-bold text-slate-800 mt-2">Employee</p>
+          <button onclick="showView('view-profile')" class="mt-4 text-xs font-semibold text-indigo-600 hover:underline">View Details &rarr;</button>
+        </div>
+      </div>
+    </section>
+
+    <!--ATTENDANCE -->
+    <section id="view-attendance" class="hidden space-y-6">
+      <div class="border-b pb-4 flex justify-between items-center">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Attendance Tracking</h2>
+          <p class="text-sm text-slate-500">Record daily check-in and check-out timestamps.</p>
+        </div>
+        <div class="space-x-3">
+          <button onclick="checkIn()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Check In</button>
+          <button onclick="checkOut()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Check Out</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
+            <tr>
+              <th class="p-4">Date</th>
+              <th class="p-4">Check In</th>
+              <th class="p-4">Check Out</th>
+              <th class="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody id="attendance-table-body" class="divide-y divide-slate-200">
+            <!-- Dynamic rows inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- LEAVES VIEW -->
+    <section id="view-leaves" class="hidden space-y-6">
+      <div class="border-b pb-4">
+        <h2 class="text-2xl font-bold text-slate-900">Leave Management</h2>
+        <p class="text-sm text-slate-500">Apply for time off and review approval status.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Application Form -->
+        <form onsubmit="applyLeave(event)" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-bold text-slate-800">Apply for Leave</h3>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Leave Type</label>
+            <select id="leave-type" class="w-full border border-slate-300 p-2 rounded-lg text-sm">
+              <option value="Paid">Paid Leave</option>
+              <option value="Sick">Sick Leave</option>
+              <option value="Unpaid">Unpaid Leave</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Start Date</label>
+              <input type="date" id="leave-start" required class="w-full border border-slate-300 p-2 rounded-lg text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">End Date</label>
+              <input type="date" id="leave-end" required class="w-full border border-slate-300 p-2 rounded-lg text-sm" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Remarks</label>
+            <textarea id="leave-remarks" rows="3" required class="w-full border border-slate-300 p-2 rounded-lg text-sm"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm">Submit Request</button>
+        </form>
+
+        <!-- Requests List -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-slate-800 mb-4">Leave Requests</h3>
+          <div id="leaves-list" class="space-y-3 text-sm">
+           
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE  -->
+    <section id="view-profile" class="hidden space-y-6">
+      <div class="border-b pb-4">
+        <h2 class="text-2xl font-bold text-slate-900">Profile & Salary Details</h2>
+        <p class="text-sm text-slate-500">View personal information, job details, and salary structure.</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-bold text-slate-800 mb-3">Personal Details</h3>
+          <div class="space-y-2 text-sm text-slate-600">
+            <p><span class="font-semibold text-slate-800">Name:</span> <span id="prof-name">-</span></p>
+            <p><span class="font-semibold text-slate-800">Email:</span> <span id="prof-email">-</span></p>
+            <p><span class="font-semibold text-slate-800">Employee ID:</span> <span id="prof-empid">-</span></p>
+            <p><span class="font-semibold text-slate-800">Department:</span> <span id="prof-dept">-</span></p>
+          </div>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 mb-3">Salary Structure (Read-Only)</h3>
+          <div class="space-y-2 text-sm text-slate-600">
+            <p><span class="font-semibold text-slate-800">Basic Salary:</span> ₹<span id="prof-basic">-</span></p>
+            <p><span class="font-semibold text-slate-800">Allowances:</span> ₹<span id="prof-allowances">-</span></p>
+            <p><span class="font-semibold text-slate-800">Deductions:</span> ₹<span id="prof-deductions">-</span></p>
+            <p class="border-t pt-2 font-bold text-emerald-600"><span class="text-slate-800">Net Salary:</span> ₹<span id="prof-net">-</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Navigation -->
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+    let currentUser = null;
+
+    function showView(viewId) {
+      const views = ['view-auth', 'view-dashboard', 'view-attendance', 'view-leaves', 'view-profile'];
+      views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+      document.getElementById(viewId).classList.remove('hidden');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/signin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Invalid credentials');
+        
+        currentUser = await res.json();
+        document.getElementById('app-nav').classList.remove('hidden');
+        document.getElementById('user-badge').innerText = currentUser.role;
+        document.getElementById('dash-user-name').innerText = currentUser.name;
+        
+        loadProfile();
+        showView('view-dashboard');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function loadProfile() {
+      if (!currentUser) return;
+      const res = await fetch(`${API_BASE}/profile/${currentUser.emp_id}`);
+      const data = await res.json();
+      document.getElementById('prof-name').innerText = data.name;
+      document.getElementById('prof-email').innerText = data.email;
+      document.getElementById('prof-empid').innerText = data.emp_id;
+      document.getElementById('prof-dept').innerText = data.department;
+      document.getElementById('prof-basic').innerText = data.basic_salary;
+      document.getElementById('prof-allowances').innerText = data.allowances;
+      document.getElementById('prof-deductions').innerText = data.deductions;
+      document.getElementById('prof-net').innerText = data.net_salary;
+    }
+
+    async function checkIn() {
+      if (!currentUser) return;
+      const res = await fetch(`${API_BASE}/attendance/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emp_id: currentUser.emp_id, name: currentUser.name })
+      });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    async function checkOut() {
+      if (!currentUser) return;
+      const res = await fetch(`${API_BASE}/attendance/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emp_id: currentUser.emp_id })
+      });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    async function applyLeave(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      const payload = {
+        emp_id: currentUser.emp_id,
+        name: currentUser.name,
+        leave_type: document.getElementById('leave-type').value,
+        start_date: document.getElementById('leave-start').value,
+        end_date: document.getElementById('leave-end').value,
+        remarks: document.getElementById('leave-remarks').value
+      };
+      const res = await fetch(`${API_BASE}/leaves/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('app-nav').classList.add('hidden');
+      showView('view-auth');
+    }
+  </script>
+</body>
+</html>
