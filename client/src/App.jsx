@@ -7,6 +7,7 @@ import Profile from './pages/Profile';
 import AdminEmployees from './pages/AdminEmployees';
 import AdminEmployeeIds from './pages/AdminEmployeeIds';
 import AdminLeaveApprovals from './pages/AdminLeaveApprovals';
+import AdminPayroll from './pages/AdminPayroll';
 import Attendance from './pages/Attendance';
 import Leaves from './pages/Leaves';
 import Payroll from './pages/Payroll';
@@ -51,7 +52,7 @@ export default function App() {
       <Route path="/admin/employees" element={<AdminRoute><AdminEmployees /></AdminRoute>} />
       <Route path="/admin/employee-ids" element={<AdminRoute><AdminEmployeeIds /></AdminRoute>} />
       <Route path="/admin/leave" element={<AdminRoute><AdminLeaveApprovals /></AdminRoute>} />
-      <Route path="/admin/payroll" element={<AdminRoute><Payroll /></AdminRoute>} />
+      <Route path="/admin/payroll" element={<AdminRoute><AdminPayroll /></AdminRoute>} />
 
       {/* Legacy link redirects to the right role-based dashboard */}
       <Route path="/dashboard" element={<ProtectedRoute><Navigate to={getHomeRoute()} replace /></ProtectedRoute>} />

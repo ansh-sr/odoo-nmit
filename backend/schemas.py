@@ -79,6 +79,33 @@ class PayrollCreate(BaseModel):
     deductions: Optional[float] = 0.0
     payment_date: datetime
 
+    @field_validator('base_salary')
+    @classmethod
+    def validate_base_salary(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError('Base salary cannot be negative')
+        return v
+
+    @field_validator('bonuses', 'deductions')
+    @classmethod
+    def validate_non_negative(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError('Amount cannot be negative')
+        return v
+
+class PayrollUpdate(BaseModel):
+    base_salary: Optional[float] = None
+    bonuses: Optional[float] = None
+    deductions: Optional[float] = None
+    payment_date: Optional[datetime] = None
+
+    @field_validator('base_salary', 'bonuses', 'deductions')
+    @classmethod
+    def validate_non_negative(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError('Amount cannot be negative')
+        return v
+
 class PayrollResponse(BaseModel):
     id: int
     user_id: int
@@ -87,6 +114,21 @@ class PayrollResponse(BaseModel):
     deductions: float
     net_salary: float
     payment_date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EmployeePayrollSummary(BaseModel):
+    """One row per employee for the admin payroll screen - who they are
+    plus their most recent payroll record, if any."""
+    user_id: int
+    employee_id: str
+    email: str
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    latest_net_salary: Optional[float] = None
+    latest_payment_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

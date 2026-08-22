@@ -319,8 +319,41 @@ def get_user_leaves(user_id: int, db: Session = Depends(get_db)):
     return db.query(models.LeaveRequest).filter(models.LeaveRequest.user_id == user_id).all()
 
 
+@app.get("/admin/payroll", response_model=List[schemas.EmployeePayrollSummary])
+def list_employee_payroll_summaries(db: Session = Depends(get_db)):
+    """One row per signed-up employee with their most recent payroll record,
+    for the admin 'select an employee' payroll screen."""
+    users = db.query(models.User).order_by(models.User.id.asc()).all()
+    results = []
+    for u in users:
+        profile = db.query(models.Profile).filter(models.Profile.user_id == u.id).first()
+        latest = (
+            db.query(models.Payroll)
+            .filter(models.Payroll.user_id == u.id)
+            .order_by(models.Payroll.payment_date.desc(), models.Payroll.id.desc())
+            .first()
+        )
+        results.append(
+            schemas.EmployeePayrollSummary(
+                user_id=u.id,
+                employee_id=u.employee_id,
+                email=u.email,
+                full_name=profile.full_name if profile else None,
+                job_title=profile.job_title if profile else None,
+                latest_net_salary=latest.net_salary if latest else None,
+                latest_payment_date=latest.payment_date if latest else None,
+            )
+        )
+    return results
+
+
 @app.post("/payroll/create", response_model=schemas.PayrollResponse)
 def create_payroll(user_id: int, payroll: schemas.PayrollCreate, db: Session = Depends(get_db)):
+    """Admin pays/runs payroll for an employee - creates a new payroll record."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
     net_salary = payroll.base_salary + payroll.bonuses - payroll.deductions
     new_payroll = models.Payroll(
         user_id=user_id,
@@ -336,6 +369,34 @@ def create_payroll(user_id: int, payroll: schemas.PayrollCreate, db: Session = D
     return new_payroll
 
 
+@app.put("/payroll/{payroll_id}", response_model=schemas.PayrollResponse)
+def update_payroll(payroll_id: int, payload: schemas.PayrollUpdate, db: Session = Depends(get_db)):
+    """Admin updates the salary structure of an existing payroll record."""
+    record = db.query(models.Payroll).filter(models.Payroll.id == payroll_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Payroll record not found")
+
+    if payload.base_salary is not None:
+        record.base_salary = payload.base_salary
+    if payload.bonuses is not None:
+        record.bonuses = payload.bonuses
+    if payload.deductions is not None:
+        record.deductions = payload.deductions
+    if payload.payment_date is not None:
+        record.payment_date = payload.payment_date
+
+    record.net_salary = record.base_salary + record.bonuses - record.deductions
+
+    db.commit()
+    db.refresh(record)
+    return record
+
+
 @app.get("/payroll/{user_id}", response_model=List[schemas.PayrollResponse])
 def get_user_payroll(user_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Payroll).filter(models.Payroll.user_id == user_id).all()
+    return (
+        db.query(models.Payroll)
+        .filter(models.Payroll.user_id == user_id)
+        .order_by(models.Payroll.payment_date.desc(), models.Payroll.id.desc())
+        .all()
+    )
