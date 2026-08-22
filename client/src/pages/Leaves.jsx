@@ -1,23 +1,30 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { getUserId } from '../lib/auth';
 
 export default function Leaves() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  
+  const [error, setError] = useState('');
+
   const [leaveType, setLeaveType] = useState('Sick Leave');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [remarks, setRemarks] = useState('');
 
-  const userId = 1;
+  const userId = getUserId();
 
   useEffect(() => {
     fetchLeaves();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchLeaves = () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     fetch(`${import.meta.env.VITE_API_URL}/leave/${userId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -32,8 +39,9 @@ export default function Leaves() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/leave/request?user_id=${userId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/leave/apply?user_id=${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -45,10 +53,15 @@ export default function Leaves() {
       });
 
       if (!response.ok) throw new Error('Failed to submit leave request');
-      
+
       setShowForm(false);
-      fetchLeaves(); 
+      setLeaveType('Sick Leave');
+      setStartDate('');
+      setEndDate('');
+      setRemarks('');
+      fetchLeaves();
     } catch (err) {
+      setError(err.message);
       console.error(err);
     }
   };
@@ -67,6 +80,9 @@ export default function Leaves() {
 
       {showForm && (
         <div className="mt-8 rounded-xl2 bg-surface p-6 shadow-card">
+          {error && (
+            <div className="mb-4 rounded-lg bg-danger-soft p-3 text-sm font-medium text-danger">{error}</div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>

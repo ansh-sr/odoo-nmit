@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { saveSession, getHomeRoute } from '../lib/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -28,10 +29,8 @@ export default function Login() {
         throw new Error(data.detail || 'Invalid email or password');
       }
 
-      localStorage.setItem('token', data.access_token);
-      
-      // We will update this later to route to Admin vs Employee dashboard
-      navigate('/dashboard'); 
+      saveSession(data);
+      navigate(getHomeRoute());
     } catch (err) {
       setError(err.message);
     }

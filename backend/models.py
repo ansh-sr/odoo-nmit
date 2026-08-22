@@ -55,3 +55,15 @@ class Payroll(Base):
     deductions = Column(Float, default=0.0)
     net_salary = Column(Float)
     payment_date = Column(DateTime)
+
+class EmployeeDirectory(Base):
+    """Employee IDs issued by an Admin. An employee can only sign up if their
+    Employee ID exists here and hasn't been used yet."""
+    __tablename__ = 'employee_directory'
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(String, unique=True, index=True)
+    full_name = Column(String)
+    role = Column(String, default="Employee")
+    is_registered = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

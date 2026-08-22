@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { getUserId } from '../lib/auth';
 
 export default function Payroll() {
   const [payroll, setPayroll] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const userId = 1;
+  const userId = getUserId();
 
   useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     fetch(`${import.meta.env.VITE_API_URL}/payroll/${userId}`)
       .then((res) => res.json())
       .then((data) => {

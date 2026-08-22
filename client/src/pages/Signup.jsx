@@ -7,6 +7,7 @@ export default function Signup() {
     email: '',
     password: '',
     role: 'Employee',
+    phone: '',
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -64,6 +65,9 @@ export default function Signup() {
               onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
               className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
             />
+            {formData.role === 'Employee' && (
+              <p className="mt-1 text-xs text-muted">Ask your Admin/HR for the Employee ID they generated for you.</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink">Email</label>
@@ -82,6 +86,16 @@ export default function Signup() {
               required
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">Mobile number</label>
+            <input
+              type="tel"
+              placeholder="e.g. +91 98765 43210"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
             />
           </div>

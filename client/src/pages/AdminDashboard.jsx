@@ -1,25 +1,64 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, FileText, UserCheck, UserX, ArrowRight } from 'lucide-react'
 import Layout from '../components/Layout.jsx'
 import DayProgress from '../components/DayProgress.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
-import { employees, allPendingLeave } from '../data/mockData.js'
+import { getUserId } from '../lib/auth.js'
 
-const adminUser = employees.find((e) => e.role === 'HR')
+const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 export default function AdminDashboard() {
-  const presentToday = employees.filter((e) => e.attendanceStatus === 'Present').length
+  const userId = getUserId()
+  const [adminProfile, setAdminProfile] = useState(null)
+  const [employees, setEmployees] = useState([])
+  const [pendingLeave, setPendingLeave] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [profileRes, employeesRes, leavesRes] = await Promise.all([
+          userId ? fetch(`${apiUrl}/profile/${userId}`) : Promise.resolve(null),
+          fetch(`${apiUrl}/admin/users`),
+          fetch(`${apiUrl}/admin/leaves?status=Pending`),
+        ])
+        if (profileRes && profileRes.ok) setAdminProfile(await profileRes.json())
+        setEmployees(employeesRes.ok ? await employeesRes.json() : [])
+        setPendingLeave(leavesRes.ok ? await leavesRes.json() : [])
+      } catch (err) {
+        console.error('Failed to load admin dashboard:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [userId])
+
+  if (loading) {
+    return (
+      <Layout title="Admin Overview">
+        <p className="text-muted">Loading dashboard…</p>
+      </Layout>
+    )
+  }
+
+  const presentToday = employees.filter((e) => e.attendance_status === 'Present').length
   const notPresent = employees.length - presentToday
 
   const stats = [
     { label: 'Total employees', value: employees.length, icon: Users, color: 'bg-indigo-soft text-indigo' },
     { label: 'Present today', value: presentToday, icon: UserCheck, color: 'bg-success-soft text-success' },
     { label: 'Not present', value: notPresent, icon: UserX, color: 'bg-danger-soft text-danger' },
-    { label: 'Pending leave', value: allPendingLeave.length, icon: FileText, color: 'bg-accent-soft text-accent-deep' },
+    { label: 'Pending leave', value: pendingLeave.length, icon: FileText, color: 'bg-accent-soft text-accent-deep' },
   ]
 
+  const sidebarUser = adminProfile
+    ? { name: adminProfile.full_name || adminProfile.employee_id, avatar: (adminProfile.full_name || adminProfile.employee_id || '?').slice(0, 2).toUpperCase() }
+    : null
+
   return (
-    <Layout user={adminUser} title="Admin Overview" subtitle="Team attendance and approvals at a glance.">
+    <Layout user={sidebarUser} title="Admin Overview" subtitle="Team attendance and approvals at a glance.">
       <div className="mb-6">
         <DayProgress />
       </div>
@@ -45,18 +84,19 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div className="mt-4 space-y-2.5">
+            {employees.length === 0 && <p className="text-sm text-muted">No employees have signed up yet.</p>}
             {employees.map((emp) => (
-              <div key={emp.id} className="flex items-center justify-between rounded-lg border border-line px-4 py-3">
+              <div key={emp.user_id} className="flex items-center justify-between rounded-lg border border-line px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent-deep">
-                    {emp.avatar}
+                    {(emp.full_name || emp.employee_id || '?').slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-ink">{emp.name}</p>
-                    <p className="text-xs text-muted">{emp.designation}</p>
+                    <p className="text-sm font-medium text-ink">{emp.full_name || emp.employee_id}</p>
+                    <p className="text-xs text-muted">{emp.job_title || 'No job title set'}</p>
                   </div>
                 </div>
-                <StatusBadge status={emp.attendanceStatus} />
+                <StatusBadge status={emp.attendance_status} />
               </div>
             ))}
           </div>
@@ -70,15 +110,15 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div className="mt-4 space-y-3">
-            {allPendingLeave.length === 0 && <p className="text-sm text-muted">Nothing waiting on you right now.</p>}
-            {allPendingLeave.map((lr) => (
+            {pendingLeave.length === 0 && <p className="text-sm text-muted">Nothing waiting on you right now.</p>}
+            {pendingLeave.map((lr) => (
               <div key={lr.id} className="rounded-lg border border-line px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-ink">{lr.employeeName}</p>
+                  <p className="text-sm font-medium text-ink">{lr.employee_name}</p>
                   <StatusBadge status={lr.status} />
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  {lr.type} · {lr.startDate} → {lr.endDate}
+                  {lr.leave_type} · {new Date(lr.start_date).toLocaleDateString()} → {new Date(lr.end_date).toLocaleDateString()}
                 </p>
               </div>
             ))}

@@ -1,41 +1,124 @@
-import { useState } from 'react'
-import { Pencil, Check, FileBadge2, Briefcase, Wallet } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Pencil, Check, Briefcase, Wallet } from 'lucide-react'
 import Layout from '../components/Layout.jsx'
-import { currentUser, employees } from '../data/mockData.js'
+import { getUserId } from '../lib/auth.js'
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 export default function Profile() {
-  const employee = employees.find((e) => e.id === currentUser.id)
+  const userId = getUserId()
+  const [profile, setProfile] = useState(null)
+  const [payroll, setPayroll] = useState([])
+  const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ phone: employee.phone, address: employee.address })
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ phone: '', address: '' })
+  const [error, setError] = useState('')
 
   const currency = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 
+  const loadProfile = async () => {
+    try {
+      const [profileRes, payrollRes] = await Promise.all([
+        fetch(`${apiUrl}/profile/${userId}`),
+        fetch(`${apiUrl}/payroll/${userId}`),
+      ])
+      if (profileRes.ok) {
+        const data = await profileRes.json()
+        setProfile(data)
+        setForm({ phone: data.phone || '', address: data.address || '' })
+      }
+      setPayroll(payrollRes.ok ? await payrollRes.json() : [])
+    } catch (err) {
+      console.error('Failed to load profile:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (userId) loadProfile()
+    else setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`${apiUrl}/profile/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) throw new Error('Failed to save profile')
+      const data = await res.json()
+      setProfile(data)
+      setEditing(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleToggleEdit = () => {
+    if (editing) {
+      handleSave()
+    } else {
+      setEditing(true)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Layout title="My Profile">
+        <p className="text-muted">Loading your profile…</p>
+      </Layout>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <Layout title="My Profile">
+        <p className="text-muted">We couldn't find a profile for this account yet.</p>
+      </Layout>
+    )
+  }
+
+  const avatar = (profile.full_name || profile.employee_id || '?').slice(0, 2).toUpperCase()
+  const latestPayroll = [...payroll].sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))[0]
+
   return (
     <Layout
-      user={currentUser}
+      user={{ name: profile.full_name || profile.employee_id, avatar }}
       title="My Profile"
-      subtitle="Personal details, job info, salary and documents."
+      subtitle="Personal details and job info."
       action={
-        <button onClick={() => setEditing((v) => !v)} className={editing ? 'btn-primary' : 'btn-ghost'}>
+        <button onClick={handleToggleEdit} disabled={saving} className={editing ? 'btn-primary' : 'btn-ghost'}>
           {editing ? <Check size={16} /> : <Pencil size={16} />}
-          {editing ? 'Save changes' : 'Edit profile'}
+          {editing ? (saving ? 'Saving…' : 'Save changes') : 'Edit profile'}
         </button>
       }
     >
+      {error && (
+        <div className="mb-4 rounded-lg bg-danger-soft p-3 text-sm font-medium text-danger">{error}</div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="card flex flex-col items-center text-center lg:col-span-1">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-soft text-2xl font-semibold text-accent-deep">
-            {employee.avatar}
+            {avatar}
           </div>
-          <p className="mt-4 font-display text-lg font-bold text-ink">{employee.name}</p>
-          <p className="text-sm text-muted">{employee.designation}</p>
+          <p className="mt-4 font-display text-lg font-bold text-ink">{profile.full_name || 'Name not set'}</p>
+          <p className="text-sm text-muted">{profile.job_title || 'Job title not set'}</p>
           <span className="mt-3 inline-flex items-center rounded-full bg-indigo-soft px-3 py-1 text-xs font-semibold text-indigo">
-            {employee.department}
+            {profile.role}
           </span>
 
           <div className="mt-6 w-full space-y-2 border-t border-line pt-5 text-left">
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Employee ID</p>
-            <p className="text-sm font-medium text-ink">{employee.id}</p>
+            <p className="text-sm font-medium text-ink">{profile.employee_id}</p>
           </div>
         </div>
 
@@ -45,17 +128,18 @@ export default function Profile() {
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Full name</label>
-                <input className="input" value={employee.name} disabled />
+                <input className="input" value={profile.full_name || ''} disabled />
               </div>
               <div>
                 <label className="label">Email</label>
-                <input className="input" value={employee.email} disabled />
+                <input className="input" value={profile.email} disabled />
               </div>
               <div>
-                <label className="label">Phone</label>
+                <label className="label">Mobile number</label>
                 <input
                   className="input"
                   value={form.phone}
+                  placeholder="Not added yet"
                   disabled={!editing}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
@@ -65,13 +149,14 @@ export default function Profile() {
                 <input
                   className="input"
                   value={form.address}
+                  placeholder="Not added yet"
                   disabled={!editing}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                 />
               </div>
             </div>
             {editing && (
-              <p className="mt-3 text-xs text-muted">Employees can edit phone, address and profile picture only.</p>
+              <p className="mt-3 text-xs text-muted">You can edit your mobile number and address here.</p>
             )}
           </div>
 
@@ -82,17 +167,19 @@ export default function Profile() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
-                <p className="text-xs text-muted">Designation</p>
-                <p className="text-sm font-medium text-ink">{employee.designation}</p>
+                <p className="text-xs text-muted">Job title</p>
+                <p className="text-sm font-medium text-ink">{profile.job_title || '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted">Department</p>
-                <p className="text-sm font-medium text-ink">{employee.department}</p>
+                <p className="text-xs text-muted">Role</p>
+                <p className="text-sm font-medium text-ink">{profile.role}</p>
               </div>
               <div>
                 <p className="text-xs text-muted">Joined on</p>
                 <p className="text-sm font-medium text-ink">
-                  {new Date(employee.joinDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {profile.created_at
+                    ? new Date(profile.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—'}
                 </p>
               </div>
             </div>
@@ -101,38 +188,26 @@ export default function Profile() {
           <div className="card">
             <div className="flex items-center gap-2">
               <Wallet size={16} className="text-accent-deep" />
-              <h3 className="font-display text-base font-semibold text-ink">Salary structure</h3>
-              <span className="ml-auto text-xs font-medium text-muted">Read-only</span>
+              <h3 className="font-display text-base font-semibold text-ink">Latest payroll</h3>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-xs text-muted">Base</p>
-                <p className="text-sm font-semibold text-ink">{currency.format(employee.salary.base)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">HRA</p>
-                <p className="text-sm font-semibold text-ink">{currency.format(employee.salary.hra)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Allowances</p>
-                <p className="text-sm font-semibold text-ink">{currency.format(employee.salary.allowances)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center gap-2">
-              <FileBadge2 size={16} className="text-accent-deep" />
-              <h3 className="font-display text-base font-semibold text-ink">Documents</h3>
-            </div>
-            <div className="mt-4 space-y-2">
-              {['Offer letter.pdf', 'PAN card.pdf', 'Aadhaar card.pdf'].map((doc) => (
-                <div key={doc} className="flex items-center justify-between rounded-lg border border-line px-4 py-2.5 text-sm">
-                  <span className="text-ink">{doc}</span>
-                  <span className="text-xs text-muted">Uploaded</span>
+            {latestPayroll ? (
+              <div className="mt-4 grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted">Base</p>
+                  <p className="text-sm font-semibold text-ink">{currency.format(latestPayroll.base_salary)}</p>
                 </div>
-              ))}
-            </div>
+                <div>
+                  <p className="text-xs text-muted">Bonuses</p>
+                  <p className="text-sm font-semibold text-ink">{currency.format(latestPayroll.bonuses)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted">Net salary</p>
+                  <p className="text-sm font-semibold text-ink">{currency.format(latestPayroll.net_salary)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted">No payroll records added yet.</p>
+            )}
           </div>
         </div>
       </div>

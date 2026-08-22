@@ -1,33 +1,65 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, X } from 'lucide-react'
 import Layout from '../components/Layout.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
-import { employees, leaveByEmployee } from '../data/mockData.js'
+import { getUserId } from '../lib/auth.js'
 
-const adminUser = employees.find((e) => e.role === 'HR')
-
-function buildRequestList(store) {
-  return Object.entries(store).flatMap(([empId, reqs]) =>
-    reqs.map((r) => ({ ...r, employeeId: empId, employeeName: employees.find((e) => e.id === empId)?.name })),
-  )
-}
+const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 export default function AdminLeaveApprovals() {
-  const [store, setStore] = useState(leaveByEmployee)
+  const userId = getUserId()
+  const [adminProfile, setAdminProfile] = useState(null)
+  const [requests, setRequests] = useState([])
   const [filter, setFilter] = useState('Pending')
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState(null)
 
-  const allRequests = buildRequestList(store).sort((a, b) => (a.appliedOn < b.appliedOn ? 1 : -1))
-  const visible = filter === 'All' ? allRequests : allRequests.filter((r) => r.status === filter)
-
-  function updateStatus(employeeId, requestId, status) {
-    setStore((prev) => ({
-      ...prev,
-      [employeeId]: prev[employeeId].map((r) => (r.id === requestId ? { ...r, status } : r)),
-    }))
+  const fetchRequests = async (status) => {
+    setLoading(true)
+    try {
+      const url = status === 'All' ? `${apiUrl}/admin/leaves` : `${apiUrl}/admin/leaves?status=${status}`
+      const res = await fetch(url)
+      setRequests(res.ok ? await res.json() : [])
+    } catch (err) {
+      console.error('Failed to fetch leave requests:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
+  useEffect(() => {
+    if (userId) {
+      fetch(`${apiUrl}/profile/${userId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => setAdminProfile(data))
+        .catch(() => {})
+    }
+  }, [userId])
+
+  useEffect(() => {
+    fetchRequests(filter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter])
+
+  const updateStatus = async (requestId, status) => {
+    setBusyId(requestId)
+    try {
+      const res = await fetch(`${apiUrl}/leave/approve/${requestId}?status=${status}`, { method: 'PUT' })
+      if (!res.ok) throw new Error('Failed to update leave request')
+      await fetchRequests(filter)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const sidebarUser = adminProfile
+    ? { name: adminProfile.full_name || adminProfile.employee_id, avatar: (adminProfile.full_name || adminProfile.employee_id || '?').slice(0, 2).toUpperCase() }
+    : null
+
   return (
-    <Layout user={adminUser} title="Leave Approvals" subtitle="Review and act on time-off requests across the team.">
+    <Layout user={sidebarUser} title="Leave Approvals" subtitle="Review and act on time-off requests across the team.">
       <div className="mb-5 flex gap-2">
         {['Pending', 'Approved', 'Rejected', 'All'].map((f) => (
           <button
@@ -43,18 +75,19 @@ export default function AdminLeaveApprovals() {
       </div>
 
       <div className="card">
-        {visible.length === 0 && <p className="text-sm text-muted">No requests in this view.</p>}
+        {loading && <p className="text-sm text-muted">Loading…</p>}
+        {!loading && requests.length === 0 && <p className="text-sm text-muted">No requests in this view.</p>}
         <div className="divide-y divide-line">
-          {visible.map((lr) => (
+          {requests.map((lr) => (
             <div key={lr.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent-deep">
-                  {lr.employeeName?.split(' ').map((n) => n[0]).join('')}
+                  {(lr.employee_name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-ink">{lr.employeeName}</p>
+                  <p className="text-sm font-semibold text-ink">{lr.employee_name}</p>
                   <p className="text-xs text-muted">
-                    {lr.type} leave · {lr.startDate} → {lr.endDate} · Applied {lr.appliedOn}
+                    {lr.leave_type} leave · {new Date(lr.start_date).toLocaleDateString()} → {new Date(lr.end_date).toLocaleDateString()}
                   </p>
                   {lr.remarks && <p className="mt-1 text-sm text-ink/80">{lr.remarks}</p>}
                 </div>
@@ -64,13 +97,15 @@ export default function AdminLeaveApprovals() {
                 {lr.status === 'Pending' ? (
                   <>
                     <button
-                      onClick={() => updateStatus(lr.employeeId, lr.id, 'Approved')}
+                      onClick={() => updateStatus(lr.id, 'Approved')}
+                      disabled={busyId === lr.id}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-success-soft px-3 py-2 text-sm font-medium text-success transition hover:bg-success hover:text-white"
                     >
                       <Check size={15} /> Approve
                     </button>
                     <button
-                      onClick={() => updateStatus(lr.employeeId, lr.id, 'Rejected')}
+                      onClick={() => updateStatus(lr.id, 'Rejected')}
+                      disabled={busyId === lr.id}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger transition hover:bg-danger hover:text-white"
                     >
                       <X size={15} /> Reject

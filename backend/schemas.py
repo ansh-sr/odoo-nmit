@@ -8,6 +8,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str
+    phone: Optional[str] = None
 
     @field_validator('password')
     @classmethod
@@ -21,6 +22,16 @@ class UserCreate(BaseModel):
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
             raise ValueError('Password must contain at least one special character')
         return v
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == '':
+            return None
+        digits = re.sub(r'\D', '', v)
+        if len(digits) < 7:
+            raise ValueError('Enter a valid mobile number')
+        return v.strip()
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -76,6 +87,78 @@ class PayrollResponse(BaseModel):
     deductions: float
     net_salary: float
     payment_date: datetime
+
+    class Config:
+        from_attributes = True
+
+class EmployeeIdGenerateRequest(BaseModel):
+    full_name: str
+
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Name is required')
+        return v.strip()
+
+class EmployeeDirectoryResponse(BaseModel):
+    id: int
+    employee_id: str
+    full_name: str
+    role: str
+    is_registered: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileUpdate(BaseModel):
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+
+class ProfileResponse(BaseModel):
+    user_id: int
+    employee_id: str
+    email: str
+    role: str
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class EmployeeSummary(BaseModel):
+    user_id: int
+    employee_id: str
+    email: str
+    role: str
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    attendance_status: str = "No record"
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LeaveRequestWithEmployee(BaseModel):
+    id: int
+    user_id: int
+    employee_id: Optional[str] = None
+    employee_name: Optional[str] = None
+    leave_type: str
+    start_date: datetime
+    end_date: datetime
+    status: str
+    remarks: Optional[str] = None
 
     class Config:
         from_attributes = True

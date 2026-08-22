@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { getUserId } from '../lib/auth';
 
 export default function Attendance() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const userId = 1; 
+  const userId = getUserId();
 
-  useEffect(() => {
+  const loadRecords = () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     fetch(`${import.meta.env.VITE_API_URL}/attendance/${userId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -18,20 +23,44 @@ export default function Attendance() {
         console.error("Failed to fetch attendance:", err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const todayStr = new Date().toDateString();
+  const todayRecord = records.find((r) => new Date(r.date).toDateString() === todayStr);
+  const checkedIn = Boolean(todayRecord?.check_in_time);
+  const checkedOut = Boolean(todayRecord?.check_out_time);
 
   const handleCheckIn = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/attendance/checkin?user_id=${userId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/attendance/check-in?user_id=${userId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Present' }),
       });
-      
+
       if (!response.ok) throw new Error('Check-in failed');
-      
-      const newRecord = await response.json();
-      setRecords([...records, newRecord]);
+
+      await response.json();
+      loadRecords();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    if (!todayRecord) return;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/attendance/check-out/${todayRecord.id}`, {
+        method: 'PUT',
+      });
+
+      if (!response.ok) throw new Error('Check-out failed');
+
+      await response.json();
+      loadRecords();
     } catch (err) {
       console.error(err);
     }
@@ -41,12 +70,14 @@ export default function Attendance() {
     <Layout>
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-ink">Attendance</h1>
-        <button 
-          onClick={handleCheckIn}
-          className="rounded-lg bg-indigo px-4 py-2 font-medium text-surface transition-colors hover:bg-indigo/90"
-        >
-          Check In
-        </button>
+        {!checkedOut && (
+          <button
+            onClick={checkedIn ? handleCheckOut : handleCheckIn}
+            className="rounded-lg bg-indigo px-4 py-2 font-medium text-surface transition-colors hover:bg-indigo/90"
+          >
+            {checkedIn ? 'Check Out' : 'Check In'}
+          </button>
+        )}
       </div>
       <div className="mt-8 overflow-hidden rounded-xl2 bg-surface shadow-card">
         {loading ? (
@@ -71,7 +102,7 @@ export default function Attendance() {
                       {record.status}
                     </span>
                   </td>
-                  <td className="p-4">{new Date(record.date).toLocaleTimeString()}</td>
+                  <td className="p-4">{record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString() : '—'}</td>
                 </tr>
               ))}
             </tbody>
