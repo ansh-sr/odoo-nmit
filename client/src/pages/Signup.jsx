@@ -11,9 +11,41 @@ export default function Signup() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  // Validation rules
+  const validateForm = () => {
+    const { employeeId, email, password } = formData;
+
+    if (!employeeId.trim()) {
+      return 'Employee ID is required.';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return 'Please enter a valid email address.';
+    }
+
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long.';
+    }
+
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/;
+    if (!passwordRegex.test(password)) {
+      return 'Password must contain at least 1 uppercase letter, 1 number, and 1 special character.';
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Run client-side validation first
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -27,7 +59,9 @@ export default function Signup() {
 
       if (!response.ok) {
         if (response.status === 422 && Array.isArray(data.detail)) {
-          const messages = data.detail.map(err => err.msg.replace('Value error, ', ''));
+          const messages = data.detail.map((err) =>
+            err.msg.replace('Value error, ', '')
+          );
           throw new Error(messages.join(' | '));
         } else if (data.detail && typeof data.detail === 'string') {
           throw new Error(data.detail);
@@ -60,6 +94,7 @@ export default function Signup() {
             <input
               type="text"
               required
+              placeholder="e.g. EMP-101"
               value={formData.employeeId}
               onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
               className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
@@ -70,6 +105,7 @@ export default function Signup() {
             <input
               type="email"
               required
+              placeholder="name@company.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
@@ -80,6 +116,7 @@ export default function Signup() {
             <input
               type="password"
               required
+              placeholder="Min 8 chars, 1 uppercase, 1 number, 1 special"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
