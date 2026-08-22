@@ -4,16 +4,18 @@ from database import Base
 
 class User(Base):
     __tablename__ = 'users'
+    
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
-    is_admin = Column(Boolean, default=False)
+    role = Column(String, default="Employee")
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Profile(Base):
     __tablename__ = 'profiles'
+    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     full_name = Column(String)
@@ -24,6 +26,7 @@ class Profile(Base):
 
 class Attendance(Base):
     __tablename__ = 'attendance'
+    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     date = Column(DateTime, default=datetime.utcnow)
@@ -33,6 +36,7 @@ class Attendance(Base):
 
 class LeaveRequest(Base):
     __tablename__ = 'leave_requests'
+    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     leave_type = Column(String) 
@@ -43,6 +47,7 @@ class LeaveRequest(Base):
 
 class Payroll(Base):
     __tablename__ = 'payroll'
+    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     base_salary = Column(Float)

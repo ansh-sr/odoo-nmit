@@ -1,100 +1,83 @@
-import { useState } from 'react'
-import { LogIn, LogOut, CalendarDays } from 'lucide-react'
-import Layout from '../components/Layout.jsx'
-import StatusBadge from '../components/StatusBadge.jsx'
-import { currentUser, attendanceByEmployee } from '../data/mockData.js'
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
 
 export default function Attendance() {
-  const [records, setRecords] = useState(attendanceByEmployee[currentUser.id])
-  const today = records.at(-1)
-  const [checkedIn, setCheckedIn] = useState(Boolean(today?.checkIn))
-  const [checkedOut, setCheckedOut] = useState(Boolean(today?.checkOut))
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const nowTime = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+  const userId = 1; 
 
-  function handleCheckIn() {
-    setCheckedIn(true)
-    setRecords((prev) => {
-      const copy = [...prev]
-      copy[copy.length - 1] = { ...copy[copy.length - 1], checkIn: nowTime(), status: 'Present' }
-      return copy
-    })
-  }
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/attendance/${userId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setRecords(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch attendance:", err);
+        setLoading(false);
+      });
+  }, []);
 
-  function handleCheckOut() {
-    setCheckedOut(true)
-    setRecords((prev) => {
-      const copy = [...prev]
-      copy[copy.length - 1] = { ...copy[copy.length - 1], checkOut: nowTime() }
-      return copy
-    })
-  }
-
-  const presentCount = records.filter((r) => r.status === 'Present').length
+  const handleCheckIn = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/attendance/checkin?user_id=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Present' }),
+      });
+      
+      if (!response.ok) throw new Error('Check-in failed');
+      
+      const newRecord = await response.json();
+      setRecords([...records, newRecord]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
-    <Layout
-      user={currentUser}
-      title="Attendance"
-      subtitle="Your daily check-ins and weekly summary."
-      action={
-        <div className="flex gap-2">
-          <button onClick={handleCheckIn} disabled={checkedIn} className="btn-accent disabled:cursor-not-allowed">
-            <LogIn size={16} /> Check in
-          </button>
-          <button onClick={handleCheckOut} disabled={!checkedIn || checkedOut} className="btn-primary disabled:cursor-not-allowed">
-            <LogOut size={16} /> Check out
-          </button>
-        </div>
-      }
-    >
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: 'Present', value: presentCount, color: 'text-success' },
-          { label: 'Absent', value: records.filter((r) => r.status === 'Absent').length, color: 'text-danger' },
-          { label: 'Half-day', value: records.filter((r) => r.status === 'Half-day').length, color: 'text-accent-deep' },
-          { label: 'Leave', value: records.filter((r) => r.status === 'Leave').length, color: 'text-indigo' },
-        ].map((s) => (
-          <div key={s.label} className="card">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">{s.label}</p>
-            <p className={`mt-2 font-display text-2xl font-bold ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
+    <Layout>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold text-ink">Attendance</h1>
+        <button 
+          onClick={handleCheckIn}
+          className="rounded-lg bg-indigo px-4 py-2 font-medium text-surface transition-colors hover:bg-indigo/90"
+        >
+          Check In
+        </button>
       </div>
-
-      <div className="card">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-accent-deep" />
-          <h3 className="font-display text-base font-semibold text-ink">This week</h3>
-        </div>
-
-        <div className="mt-4 overflow-x-auto">
+      <div className="mt-8 overflow-hidden rounded-xl2 bg-surface shadow-card">
+        {loading ? (
+          <p className="p-6 text-muted">Loading attendance records...</p>
+        ) : records.length === 0 ? (
+          <p className="p-6 text-muted">No attendance records found.</p>
+        ) : (
           <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                <th className="pb-3 pr-4 font-medium">Date</th>
-                <th className="pb-3 pr-4 font-medium">Status</th>
-                <th className="pb-3 pr-4 font-medium">Check-in</th>
-                <th className="pb-3 font-medium">Check-out</th>
+            <thead className="bg-canvas/50">
+              <tr className="border-b border-line text-muted">
+                <th className="p-4 font-medium">Date</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Check In Time</th>
               </tr>
             </thead>
             <tbody>
-              {records.map((rec) => (
-                <tr key={rec.date} className="border-b border-line last:border-0">
-                  <td className="py-3 pr-4 font-medium text-ink">
-                    {new Date(rec.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+              {records.map((record) => (
+                <tr key={record.id} className="border-b border-line/50 last:border-0 hover:bg-canvas/30">
+                  <td className="p-4">{new Date(record.date).toLocaleDateString()}</td>
+                  <td className="p-4">
+                    <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
+                      {record.status}
+                    </span>
                   </td>
-                  <td className="py-3 pr-4">
-                    <StatusBadge status={rec.status} />
-                  </td>
-                  <td className="py-3 pr-4 text-muted">{rec.checkIn || '—'}</td>
-                  <td className="py-3 text-muted">{rec.checkOut || '—'}</td>
+                  <td className="p-4">{new Date(record.date).toLocaleTimeString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
     </Layout>
-  )
+  );
 }

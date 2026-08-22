@@ -1,83 +1,36 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import {
-  LayoutGrid,
-  User,
-  CalendarClock,
-  FileText,
-  Users,
-  LogOut,
-  Sun,
-} from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-const employeeLinks = [
-  { to: '/employee', label: 'Dashboard', icon: LayoutGrid, end: true },
-  { to: '/employee/profile', label: 'Profile', icon: User },
-  { to: '/employee/attendance', label: 'Attendance', icon: CalendarClock },
-  { to: '/employee/leave', label: 'Leave Requests', icon: FileText },
-]
+export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-const adminLinks = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutGrid, end: true },
-  { to: '/admin/employees', label: 'Employees', icon: Users },
-  { to: '/admin/leave', label: 'Leave Approvals', icon: FileText },
-]
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
 
-export default function Sidebar({ user }) {
-  const navigate = useNavigate()
-  const links = user.role === 'HR' ? adminLinks : employeeLinks
+  const navClass = (path) =>
+    `block rounded-lg p-2 font-medium ${
+      location.pathname === path
+        ? 'bg-indigo-soft text-indigo'
+        : 'text-muted hover:bg-canvas'
+    }`;
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-line bg-surface">
-      <div className="flex items-center gap-2.5 px-6 py-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-accent">
-          <Sun size={18} strokeWidth={2.5} />
-        </div>
-        <div>
-          <p className="font-display text-lg font-bold leading-none text-ink">Dayflow</p>
-          <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-            {user.role === 'HR' ? 'Admin console' : 'Workspace'}
-          </p>
-        </div>
-      </div>
-
-      <nav className="flex-1 space-y-1 px-3">
-        {links.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition ${
-                isActive
-                  ? 'bg-ink text-white'
-                  : 'text-muted hover:bg-canvas hover:text-ink'
-              }`
-            }
-          >
-            <Icon size={17} strokeWidth={2} />
-            {label}
-          </NavLink>
-        ))}
+    <aside className="flex h-screen w-64 flex-col border-r border-line bg-surface p-6">
+      <div className="mb-8 font-display text-2xl font-bold text-ink">Dayflow</div>
+      <nav className="flex-1 space-y-2">
+        <Link to="/dashboard" className={navClass('/dashboard')}>Dashboard</Link>
+        <Link to="/attendance" className={navClass('/attendance')}>Attendance</Link>
+        <Link to="/leaves" className={navClass('/leaves')}>Leaves</Link>
+        <Link to="/payroll" className={navClass('/payroll')}>Payroll</Link>
       </nav>
-
-      <div className="border-t border-line p-3">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent-deep">
-            {user.avatar}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
-            <p className="truncate text-xs text-muted">{user.designation}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => navigate('/login')}
-          className="mt-1 flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted transition hover:bg-danger-soft hover:text-danger"
-        >
-          <LogOut size={17} strokeWidth={2} />
-          Log out
-        </button>
-      </div>
+      <button 
+        onClick={handleLogout} 
+        className="mt-auto block w-full rounded-lg p-2 text-left font-medium text-danger hover:bg-danger-soft"
+      >
+        Log out
+      </button>
     </aside>
-  )
+  );
 }
