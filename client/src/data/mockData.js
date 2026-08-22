@@ -154,3 +154,28 @@ export const allPendingLeave = Object.entries(leaveByEmployee).flatMap(([empId, 
     .filter((r) => r.status === 'Pending')
     .map((r) => ({ ...r, employeeId: empId, employeeName: employees.find((e) => e.id === empId)?.name })),
 )
+
+// Mock payroll data for all employees
+export const payrollByEmployee = {
+  EMP001: [
+    { id: 'PAY001', userId: 'EMP001', baseSalary: 85000, bonuses: 5000, deductions: 3200, netSalary: 86800, paymentDate: '2026-07-31' },
+    { id: 'PAY002', userId: 'EMP001', baseSalary: 85000, bonuses: 0, deductions: 3200, netSalary: 81800, paymentDate: '2026-08-31' },
+  ],
+  EMP002: [
+    { id: 'PAY003', userId: 'EMP002', baseSalary: 92000, bonuses: 8000, deductions: 4100, netSalary: 95900, paymentDate: '2026-07-31' },
+    { id: 'PAY004', userId: 'EMP002', baseSalary: 92000, bonuses: 0, deductions: 4100, netSalary: 87900, paymentDate: '2026-08-31' },
+  ],
+  EMP003: [
+    { id: 'PAY005', userId: 'EMP003', baseSalary: 78000, bonuses: 3000, deductions: 2800, netSalary: 78200, paymentDate: '2026-07-31' },
+    { id: 'PAY006', userId: 'EMP003', baseSalary: 78000, bonuses: 0, deductions: 2800, netSalary: 75200, paymentDate: '2026-08-31' },
+  ],
+  EMP004: [
+    { id: 'PAY007', userId: 'EMP004', baseSalary: 80000, bonuses: 2000, deductions: 3000, netSalary: 79000, paymentDate: '2026-07-31' },
+    { id: 'PAY008', userId: 'EMP004', baseSalary: 80000, bonuses: 0, deductions: 3000, netSalary: 77000, paymentDate: '2026-08-31' },
+  ],
+}
+
+// All payroll records flattened, for admin overview
+export const allPayroll = Object.entries(payrollByEmployee).flatMap(([empId, records]) =>
+  records.map((r) => ({ ...r, employeeName: employees.find((e) => e.id === empId)?.name, employeeId: empId })),
+)

@@ -1,159 +1,148 @@
-import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { api } from '../api'
+import Navbar from '../components/Navbar'
+import StatCard from '../components/StatCard'
+import LedgerTable from '../components/LedgerTable'
+
+function fmtDateOnly(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 export default function Leaves() {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  
-  const [leaveType, setLeaveType] = useState('Sick Leave');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [remarks, setRemarks] = useState('');
+  const { user } = useAuth()
+  const [leaves, setLeaves] = useState([])
+  const [notice, setNotice] = useState('')
+  const [leaveForm, setLeaveForm] = useState({ leave_type: 'Casual', start_date: '', end_date: '', remarks: '' })
+  const [leaveError, setLeaveError] = useState('')
 
-  const userId = 1;
+  async function load() {
+    const data = await api.getLeaves(user.id)
+    setLeaves(data)
+  }
 
   useEffect(() => {
-    fetchLeaves();
-  }, []);
+    load().catch((e) => setNotice(e.message))
+  }, [])
 
-  const fetchLeaves = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/leave/${userId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setRequests(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch leaves:", err);
-        setLoading(false);
-      });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  async function submitLeave(e) {
+    e.preventDefault()
+    setLeaveError('')
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/leave/request?user_id=${userId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leave_type: leaveType,
-          start_date: new Date(startDate).toISOString(),
-          end_date: new Date(endDate).toISOString(),
-          remarks: remarks
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to submit leave request');
-      
-      setShowForm(false);
-      fetchLeaves(); 
-    } catch (err) {
-      console.error(err);
+      await api.requestLeave(user.id, leaveForm)
+      setLeaveForm({ leave_type: 'Casual', start_date: '', end_date: '', remarks: '' })
+      setNotice('Leave request submitted.')
+      await load()
+    } catch (e2) {
+      setLeaveError(e2.message)
     }
-  };
+  }
+
+  const pending = leaves.filter((l) => l.status === 'Pending').length
+  const approved = leaves.filter((l) => l.status === 'Approved').length
 
   return (
-    <Layout>
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-ink">Leave Requests</h1>
-        <button 
-          onClick={() => setShowForm(!showForm)}
-          className="rounded-lg bg-indigo px-4 py-2 font-medium text-surface transition-colors hover:bg-indigo/90"
-        >
-          {showForm ? 'Cancel' : 'Request Leave'}
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="mt-8 rounded-xl2 bg-surface p-6 shadow-card">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink">Leave Type</label>
-                <select 
-                  value={leaveType} 
-                  onChange={(e) => setLeaveType(e.target.value)}
-                  className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
-                >
-                  <option>Sick Leave</option>
-                  <option>Casual Leave</option>
-                  <option>Annual Leave</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink">Remarks</label>
-                <input 
-                  type="text" 
-                  value={remarks} 
-                  onChange={(e) => setRemarks(e.target.value)}
-                  className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo" 
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink">Start Date</label>
-                <input 
-                  type="date" 
-                  required
-                  value={startDate} 
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo" 
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink">End Date</label>
-                <input 
-                  type="date" 
-                  required
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo" 
-                />
-              </div>
-            </div>
-            <button type="submit" className="rounded-lg bg-indigo px-4 py-2 font-medium text-surface">
-              Submit Request
-            </button>
-          </form>
-        </div>
-      )}
-
-      <div className="mt-8 overflow-hidden rounded-xl2 bg-surface shadow-card">
-        {loading ? (
-          <p className="p-6 text-muted">Loading leave records...</p>
-        ) : requests.length === 0 ? (
-          <p className="p-6 text-muted">No leave history found.</p>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-canvas/50">
-              <tr className="border-b border-line text-muted">
-                <th className="p-4 font-medium">Type</th>
-                <th className="p-4 font-medium">Start Date</th>
-                <th className="p-4 font-medium">End Date</th>
-                <th className="p-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((req) => (
-                <tr key={req.id} className="border-b border-line/50 last:border-0 hover:bg-canvas/30">
-                  <td className="p-4 font-medium text-ink">{req.leave_type}</td>
-                  <td className="p-4">{new Date(req.start_date).toLocaleDateString()}</td>
-                  <td className="p-4">{new Date(req.end_date).toLocaleDateString()}</td>
-                  <td className="p-4">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      req.status === 'Pending' ? 'bg-warning-soft text-warning' : 
-                      req.status === 'Approved' ? 'bg-success-soft text-success' : 
-                      'bg-danger-soft text-danger'
-                    }`}>
-                      {req.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="min-h-screen bg-paper">
+      <Navbar title="Leave" />
+      <main className="max-w-5xl mx-auto px-6 py-10">
+        {notice && (
+          <div className="mb-6 font-mono text-xs uppercase tracking-widest text-ink border border-rule px-4 py-2 inline-block">
+            {notice}
+          </div>
         )}
-      </div>
-    </Layout>
-  );
+
+        {/* Stats */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <StatCard label="Pending" value={pending} accent={pending > 0} />
+          <StatCard label="Approved" value={approved} />
+          <StatCard label="Total requests" value={leaves.length} />
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Leave request form */}
+          <section>
+            <h2 className="font-display text-xl text-ink mb-3">Request leave</h2>
+            <form onSubmit={submitLeave} className="border border-rule p-5 mb-5">
+              <label className="block mb-3">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Type</span>
+                <select
+                  value={leaveForm.leave_type}
+                  onChange={(e) => setLeaveForm((f) => ({ ...f, leave_type: e.target.value }))}
+                  className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm focus:border-ink outline-none"
+                >
+                  <option>Casual</option>
+                  <option>Sick</option>
+                  <option>Earned</option>
+                  <option>Unpaid</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <label className="block">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-slate">From</span>
+                  <input
+                    type="date"
+                    required
+                    value={leaveForm.start_date}
+                    onChange={(e) => setLeaveForm((f) => ({ ...f, start_date: e.target.value }))}
+                    className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm focus:border-ink outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-slate">To</span>
+                  <input
+                    type="date"
+                    required
+                    value={leaveForm.end_date}
+                    onChange={(e) => setLeaveForm((f) => ({ ...f, end_date: e.target.value }))}
+                    className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm focus:border-ink outline-none"
+                  />
+                </label>
+              </div>
+              <label className="block mb-4">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Remarks</span>
+                <textarea
+                  value={leaveForm.remarks}
+                  onChange={(e) => setLeaveForm((f) => ({ ...f, remarks: e.target.value }))}
+                  className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm focus:border-ink outline-none"
+                  rows={2}
+                />
+              </label>
+              {leaveError && <div className="mb-3 font-body text-sm text-danger">{leaveError}</div>}
+              <button className="w-full bg-ink text-paper font-body text-sm py-2.5 hover:bg-signal hover:text-ink transition-colors">
+                Submit request
+              </button>
+            </form>
+          </section>
+
+          {/* Leave history */}
+          <section>
+            <h2 className="font-display text-xl text-ink mb-3">Leave history</h2>
+            <LedgerTable
+              columns={[
+                { key: 'leave_type', label: 'Type' },
+                { key: 'start_date', label: 'From', render: (r) => fmtDateOnly(r.start_date) },
+                { key: 'end_date', label: 'To', render: (r) => fmtDateOnly(r.end_date) },
+                { key: 'remarks', label: 'Remarks' },
+                {
+                  key: 'status',
+                  label: 'Status',
+                  render: (r) => (
+                    <span className={
+                      r.status === 'Approved' ? 'text-success' :
+                      r.status === 'Rejected' ? 'text-danger' : 'text-slate'
+                    }>
+                      {r.status}
+                    </span>
+                  ),
+                },
+              ]}
+              rows={leaves}
+              emptyLabel="No leave requests filed."
+            />
+          </section>
+        </div>
+      </main>
+    </div>
+  )
 }
