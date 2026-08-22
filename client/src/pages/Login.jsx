@@ -1,81 +1,86 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/signin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          username: email, 
-          password: password,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Invalid email or password');
-
-      const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      
-      // We will update this later to route to Admin vs Employee dashboard
-      navigate('/dashboard'); 
+      const user = await login(email, password)
+      navigate(user.role === 'Admin' ? '/admin' : '/dashboard')
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Sign in failed')
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-xl2 bg-surface p-8 shadow-card">
-        <h1 className="font-display text-2xl font-bold text-ink">Welcome to Dayflow</h1>
-        <p className="mt-2 text-sm text-muted">Sign in to manage your HR tasks.</p>
+    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-10 text-center">
+          <div className="font-display text-4xl text-ink tracking-tight">Ledger</div>
+          <div className="font-mono text-xs uppercase tracking-widest text-slate mt-2">
+            Attendance &middot; Leave &middot; Payroll
+          </div>
+        </div>
 
-        {error && <p className="mt-4 rounded bg-danger-soft p-3 text-sm text-danger">{error}</p>}
+        <form onSubmit={handleSubmit} className="border border-rule p-8 bg-paper">
+          <h1 className="font-display text-xl text-ink mb-6">Sign in</h1>
 
-        <form onSubmit={handleLogin} className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Email</label>
+          <label className="block mb-4">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Email</span>
             <input
               type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
-              required
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
+              placeholder="you@company.com"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Password</label>
+          </label>
+
+          <label className="block mb-6">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Password</span>
             <input
               type="password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
-              required
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
+              placeholder="••••••••"
             />
-          </div>
+          </label>
+
+          {error && (
+            <div className="mb-4 font-body text-sm text-danger border border-danger px-3 py-2">{error}</div>
+          )}
+
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo p-2.5 font-medium text-surface transition-colors hover:bg-indigo/90"
+            disabled={loading}
+            className="w-full bg-ink text-paper font-body text-sm py-2.5 hover:bg-signal hover:text-ink transition-colors disabled:opacity-50"
           >
-            Sign In
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
-        </form>
-        
-        {/* Added Sign Up Link Here */}
-        <p className="mt-4 text-center text-sm text-muted">
-          Don't have an account? <Link to="/signup" className="text-indigo hover:underline">Sign up</Link>
-        </p>
 
+          <div className="mt-6 text-center font-body text-sm text-slate">
+            New here?{' '}
+            <Link to="/signup" className="text-ink underline underline-offset-2">
+              Create an account
+            </Link>
+          </div>
+        </form>
       </div>
     </div>
-  );
+  )
 }

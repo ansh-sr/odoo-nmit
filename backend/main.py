@@ -70,7 +70,7 @@ def sign_in(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
     return {"access_token": token, "token_type": "bearer"}
 
 
-@app.post("/attendance/check-in", response_model=schemas.AttendanceResponse)
+@app.post("/attendance/checkin", response_model=schemas.AttendanceResponse)
 def check_in(user_id: int, db: Session = Depends(get_db)):
     new_attendance = models.Attendance(
         user_id=user_id,
@@ -102,7 +102,7 @@ def get_user_attendance(user_id: int, db: Session = Depends(get_db)):
     return records
 
 
-@app.post("/leave/apply", response_model=schemas.LeaveRequestResponse)
+@app.post("/leave/request", response_model=schemas.LeaveRequestResponse)
 def apply_leave(leave: schemas.LeaveRequestCreate, user_id: int, db: Session = Depends(get_db)):
     new_leave = models.LeaveRequest(
         user_id=user_id,
@@ -156,30 +156,49 @@ def create_payroll(user_id: int, payroll: schemas.PayrollCreate, db: Session = D
 def get_user_payroll(user_id: int, db: Session = Depends(get_db)):
     return db.query(models.Payroll).filter(models.Payroll.user_id == user_id).all()
 
-# ... (keep your other imports) ...
 
-@app.post("/signup")
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    try:
-        hashed_pwd = auth.hash_password(user.password)
-    except AttributeError:
-        hashed_pwd = auth.get_password_hash(user.password)
+@app.get("/payroll/admin/all", response_model=List[schemas.PayrollResponse])
+def get_all_payroll(db: Session = Depends(get_db)):
+    """Admin endpoint: retrieve every payroll record across all employees."""
+    return db.query(models.Payroll).all()
 
-    new_user = models.User(
-        employee_id=user.employeeId,
-        email=user.email,
-        hashed_password=hashed_pwd,
-        role=user.role
-    )
-    
-    try:
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return {"message": "User created successfully", "role": new_user.role}
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400, 
-            detail="Employee ID or Email is already registered."
+
+@app.put("/payroll/update/{payroll_id}", response_model=schemas.PayrollResponse)
+def update_payroll(payroll_id: int, payroll: schemas.PayrollCreate, db: Session = Depends(get_db)):
+    """Admin endpoint: update bonuses / deductions for an existing payroll record and recalculate net."""
+    record = db.query(models.Payroll).filter(models.Payroll.id == payroll_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Payroll record not found")
+    record.base_salary = payroll.base_salary
+    record.bonuses = payroll.bonuses or 0.0
+    record.deductions = payroll.deductions or 0.0
+    record.net_salary = record.base_salary + record.bonuses - record.deductions
+    record.payment_date = payroll.payment_date
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@app.get("/payroll/admin/salary-structure")
+def get_salary_structure(db: Session = Depends(get_db)):
+    """Admin endpoint: return each employee's latest payroll as a salary-structure snapshot."""
+    users = db.query(models.User).filter(models.User.role != "Admin").all()
+    result = []
+    for user in users:
+        latest = (
+            db.query(models.Payroll)
+            .filter(models.Payroll.user_id == user.id)
+            .order_by(models.Payroll.payment_date.desc())
+            .first()
         )
+        if latest:
+            result.append({
+                "user_id": user.id,
+                "employee_id": user.employee_id,
+                "base_salary": latest.base_salary,
+                "bonuses": latest.bonuses,
+                "deductions": latest.deductions,
+                "net_salary": latest.net_salary,
+                "payment_date": latest.payment_date,
+            })
+    return result

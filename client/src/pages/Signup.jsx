@@ -1,115 +1,134 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { api } from '../api'
+
+const RULES = [
+  { test: (v) => v.length >= 8, label: 'At least 8 characters' },
+  { test: (v) => /[A-Z]/.test(v), label: 'One uppercase letter' },
+  { test: (v) => /[a-z]/.test(v), label: 'One lowercase letter' },
+  { test: (v) => /[!@#$%^&*(),.?":{}|<>]/.test(v), label: 'One special character' },
+]
 
 export default function Signup() {
-  const [formData, setFormData] = useState({
-    employeeId: '',
-    email: '',
-    password: '',
-    role: 'Employee',
-  });
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ employeeId: '', email: '', password: '', role: 'Employee' })
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  function update(field, value) {
+    setForm((f) => ({ ...f, [field]: value }))
+  }
 
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 422 && Array.isArray(data.detail)) {
-          const messages = data.detail.map(err => err.msg.replace('Value error, ', ''));
-          throw new Error(messages.join(' | '));
-        } else if (data.detail && typeof data.detail === 'string') {
-          throw new Error(data.detail);
-        } else {
-          throw new Error('Failed to create account');
-        }
-      }
-
-      navigate('/login');
+      await api.signup(form)
+      setSuccess(true)
+      setTimeout(() => navigate('/login'), 1200)
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Sign up failed')
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-xl2 bg-surface p-8 shadow-card">
-        <h1 className="font-display text-2xl font-bold text-ink">Create Account</h1>
-        <p className="mt-2 text-sm text-muted">Register for Dayflow HRMS.</p>
+    <div className="min-h-screen bg-paper flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-10 text-center">
+          <div className="font-display text-4xl text-ink tracking-tight">Ledger</div>
+          <div className="font-mono text-xs uppercase tracking-widest text-slate mt-2">New account</div>
+        </div>
 
-        {error && (
-          <div className="mt-4 rounded-lg bg-danger-soft p-3 text-sm font-medium text-danger">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="border border-rule p-8 bg-paper">
+          <h1 className="font-display text-xl text-ink mb-6">Create account</h1>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Employee ID</label>
+          <label className="block mb-4">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Employee ID</span>
             <input
-              type="text"
               required
-              value={formData.employeeId}
-              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
+              value={form.employeeId}
+              onChange={(e) => update('employeeId', e.target.value)}
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
+              placeholder="EMP-1042"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Email</label>
+          </label>
+
+          <label className="block mb-4">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Email</span>
             <input
               type="email"
               required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
+              value={form.email}
+              onChange={(e) => update('email', e.target.value)}
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
+              placeholder="you@company.com"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Password</label>
+          </label>
+
+          <label className="block mb-2">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Password</span>
             <input
               type="password"
               required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
+              value={form.password}
+              onChange={(e) => update('password', e.target.value)}
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
+              placeholder="••••••••"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Role</label>
+          </label>
+
+          <ul className="mb-4 mt-2 space-y-1">
+            {RULES.map((rule) => {
+              const pass = rule.test(form.password)
+              return (
+                <li key={rule.label} className={`font-mono text-[11px] flex items-center gap-2 ${pass ? 'text-success' : 'text-slate'}`}>
+                  <span>{pass ? '✓' : '·'}</span> {rule.label}
+                </li>
+              )
+            })}
+          </ul>
+
+          <label className="block mb-6">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate">Role</span>
             <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              className="w-full rounded-lg border border-line p-2.5 outline-none focus:border-indigo"
+              value={form.role}
+              onChange={(e) => update('role', e.target.value)}
+              className="mt-1 w-full border border-rule bg-paper px-3 py-2 font-body text-sm text-ink focus:border-ink outline-none"
             >
               <option value="Employee">Employee</option>
-              <option value="Admin">Admin / HR</option>
+              <option value="Admin">Admin</option>
             </select>
-          </div>
+          </label>
+
+          {error && (
+            <div className="mb-4 font-body text-sm text-danger border border-danger px-3 py-2">{error}</div>
+          )}
+          {success && (
+            <div className="mb-4 font-body text-sm text-success border border-success px-3 py-2">
+              Account created. Redirecting to sign in…
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo p-2.5 font-medium text-surface transition-colors hover:bg-indigo/90"
+            disabled={loading}
+            className="w-full bg-ink text-paper font-body text-sm py-2.5 hover:bg-signal hover:text-ink transition-colors disabled:opacity-50"
           >
-            Sign Up
+            {loading ? 'Creating…' : 'Create account'}
           </button>
+
+          <div className="mt-6 text-center font-body text-sm text-slate">
+            Already have an account?{' '}
+            <Link to="/login" className="text-ink underline underline-offset-2">
+              Sign in
+            </Link>
+          </div>
         </form>
-        <p className="mt-4 text-center text-sm text-muted">
-          Already have an account?{' '}
-          <Link to="/login" className="text-indigo hover:underline">
-            Log in
-          </Link>
-        </p>
       </div>
     </div>
-  );
+  )
 }
