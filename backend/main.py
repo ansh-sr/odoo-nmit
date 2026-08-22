@@ -155,31 +155,3 @@ def create_payroll(user_id: int, payroll: schemas.PayrollCreate, db: Session = D
 @app.get("/payroll/{user_id}", response_model=List[schemas.PayrollResponse])
 def get_user_payroll(user_id: int, db: Session = Depends(get_db)):
     return db.query(models.Payroll).filter(models.Payroll.user_id == user_id).all()
-
-# ... (keep your other imports) ...
-
-@app.post("/signup")
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    try:
-        hashed_pwd = auth.hash_password(user.password)
-    except AttributeError:
-        hashed_pwd = auth.get_password_hash(user.password)
-
-    new_user = models.User(
-        employee_id=user.employeeId,
-        email=user.email,
-        hashed_password=hashed_pwd,
-        role=user.role
-    )
-    
-    try:
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return {"message": "User created successfully", "role": new_user.role}
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400, 
-            detail="Employee ID or Email is already registered."
-        )

@@ -12,7 +12,8 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/signin`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -21,9 +22,12 @@ export default function Login() {
         }),
       });
 
-      if (!response.ok) throw new Error('Invalid email or password');
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Invalid email or password');
+      }
+
       localStorage.setItem('token', data.access_token);
       
       // We will update this later to route to Admin vs Employee dashboard
